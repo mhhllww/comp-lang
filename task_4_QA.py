@@ -1,3 +1,5 @@
+# ЗАПУСК: py -3.10 task_4_QA.py
+
 from typing import Tuple
 from deeppavlov import build_model
 
@@ -37,10 +39,8 @@ def decide_qa_answer(answer: str, confidence: float, threshold: float = 0.98) ->
 
 
 def main(threshold: float = 0.98):
-    # склеиваем в одно большое поле контекста
     full_context = " ".join(CONTEXTS)
 
-    # загружаем модель
     qa_model = build_model("squad_ru_bert", download=True, install=True)
 
     print(f"Текущий порог уверенности: {threshold}\n")

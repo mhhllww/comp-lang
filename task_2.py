@@ -1,3 +1,5 @@
+# ЗАПУСК: py -3.14 task_2.py
+
 import nltk
 import string
 from nltk import CFG, ChartParser
