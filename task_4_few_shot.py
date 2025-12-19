@@ -1,75 +1,88 @@
+# ЗАПУСК: py -3.10 task_4_few_shot.py
+
 from typing import Tuple
 from deeppavlov import build_model
+from deeppavlov.core.commands.utils import parse_config
 
 
-# Контексты прямо в коде
-CONTEXTS = [
-    "Байкал является самым глубоким озером в мире.",
-    "Санкт-Петербург был основан Петром Первым в 1703 году.",
-    "У человека обычно 32 постоянных зуба.",
-    "Москва является крупнейшим городом России по численности населения.",
-    "Волга — самая длинная река в Европе.",
-    "Транссибирская магистраль является одной из самых протяжённых железных дорог в мире.",
-    "Сердце взрослого человека в среднем делает около 70 ударов в минуту в состоянии покоя.",
-    "Земля совершает полный оборот вокруг своей оси примерно за 24 часа.",
-    "Кислород составляет около 21 процента от состава атмосферного воздуха.",
-    "Эрмитаж является одним из крупнейших художественных музеев мира."
+SUPPORT_SET = [
+    ("Какая погода сегодня?", "get_weather"),
+    ("Скажи погоду в Москве", "get_weather"),
+    ("Будет ли дождь завтра?", "get_weather"),
+
+    ("Расскажи анекдот", "tell_joke"),
+    ("Пошути", "tell_joke"),
+    ("Скажи смешную шутку", "tell_joke"),
+
+    ("Нарисуй кота", "draw_picture"),
+    ("Сгенерируй картинку", "draw_picture"),
+    ("Создай изображение леса", "draw_picture"),
 ]
 
+INTENT_TO_RU = {
+    "get_weather": "get_weather (узнать погоду)",
+    "tell_joke": "tell_joke (рассказать шутку)",
+    "draw_picture": "draw_picture (сгенерировать картинку)",
+    "oos": "oos (Не понимаю запрос)",
+}
 
-def decide_qa_answer(answer: str, confidence: float, threshold: float = 0.98) -> Tuple[str, float]:
-    if not answer or answer.strip() == "":
-        return "Не могу ответить", confidence
 
+def decide_intent(intent: str, confidence: float, threshold: float) -> Tuple[str, float]:
     if confidence < threshold:
-        return "Не могу ответить", confidence
+        return "oos", confidence
+    return intent, confidence
 
-    return answer, confidence
+
+def unwrap_first(x):
+    """Разматывает вложенные списки/кортежи до первого скаляра."""
+    while isinstance(x, (list, tuple)) and len(x) > 0:
+        x = x[0]
+    return x
 
 
-def main(threshold: float = 0.98):
-    # склеиваем в одно большое поле контекста
-    full_context = " ".join(CONTEXTS)
+def main(threshold: float = 0.55):
+    print("\nLoading model...")
+    config = parse_config("few_shot_roberta")
+    model = build_model(config, download=True, install=True)
+    print("Model loaded!\n")
 
-    # загружаем модель
-    qa_model = build_model("squad_ru_bert", download=True, install=True)
+    test_messages = [
+        "Какая погода завтра?",
+        "Сколько градусов сегодня?",
+        "Расскажи анекдот",
+        "Пошути пожалуйста",
+        "Нарисуй дракона",
+        "Сделай изображение космоса",
+        # вне интентов
+        "Сколько будет два плюс два?",
+        "Где находится Салехард?",
+    ]
 
     print(f"Текущий порог уверенности: {threshold}\n")
 
-    # набор тестовых вопросов
-    test_questions = [
-        "Сколько зубов у человека",
-        "Кем был основан Санкт-Петербург",
-        "Где находится Байкал",
-        "Какая река самая длинная в Европе",
-        "Какое сердце у человека в среднем",
-        "Сколько процентов кислорода в воздухе",
-        "Какой музей является крупнейшим художественным в мире",
-        "Где находится Салехард",
-        "Сколько часов длится оборот Земли вокруг своей оси"
-    ]
+    # dataset: список пар [текст, интент]
+    dataset = [[text, label] for text, label in SUPPORT_SET]
 
-    for question in test_questions:
-        print(f"Вопрос: {question}")
+    for msg in test_messages:
+        print(f"Вопрос: {msg}")
 
-        # проверка на слишком короткие вопросы
-        if len(question.split()) < 2:
-            print("Уверенность модели: 0.0")
-            print("Итоговый ответ: Не могу ответить")
-            print("-" * 40)
-            continue
+        res = model([msg], dataset)
 
-        answers, starts, confidences = qa_model([full_context], [question])
+        if isinstance(res, (list, tuple)) and len(res) == 2:
+            labels_raw, conf_raw = res
+            intent = unwrap_first(labels_raw)
+            confidence = float(unwrap_first(conf_raw))
+        else:
+            intent = unwrap_first(res)
+            confidence = 1.0
 
-        confidence = float(confidences[0])
-        answer = answers[0]
+        if not isinstance(intent, str):
+            intent = str(intent)
 
-        final_answer, used_conf = decide_qa_answer(
-            answer, confidence, threshold=threshold
-        )
+        final_intent, used_conf = decide_intent(intent, confidence, threshold)
 
-        print(f"Уверенность модели: {confidence}")
-        print(f"Итоговый ответ: {final_answer}")
+        print(f"Уверенность модели: {used_conf}")
+        print(f"Итоговый ответ: {INTENT_TO_RU.get(final_intent, INTENT_TO_RU['oos'])}")
         print("-" * 40)
 
 
