@@ -3,18 +3,15 @@ import string
 from nltk import CFG, ChartParser
 from nltk.draw import draw_trees
 
-# === ДОБАВЛЕНО ДЛЯ ДОП. БАЛЛОВ: pymorphy2 (морфологический анализатор) ===
 import pymorphy3
 
 
-# Скачиваем необходимые ресурсы NLTK
 nltk.download('punkt')
 nltk.download('punkt_tab')
 
-# === ДОБАВЛЕНО: инициализация pymorphy2 ===
 morph = pymorphy3.MorphAnalyzer()
 
-# 1) Произвольный набор предложений на русском языке
+# 1
 sentences = [
     "мама испекла вкусный пирог",
     "я вчера получил двойку по математике",
@@ -25,36 +22,24 @@ sentences = [
 ]
 
 
-# 2) Функция для токенизации и очистки от пунктуации
+# 2 - Токенизация и очистка от пунктуациии
 def preprocess_sentence(sentence):
-    """
-    Токенизирует предложение и удаляет пунктуацию
-    """
     tokens = nltk.word_tokenize(sentence, language='russian')
     tokens_clean = [token for token in tokens if token not in string.punctuation]
     return tokens_clean
 
 
-# === ДОБАВЛЕНО: определение POS для одного токена через pymorphy2 ===
+# Доп - Определение части речи pymorphy2
 def get_pymorphy_pos(token: str) -> str:
-    """
-    Возвращает часть речи для токена в терминах pymorphy2 (NOUN, VERB, ADJF, ...)
-    Если часть речи не определена — возвращает 'UNKN'
-    """
-    # pymorphy2 ожидает нижний регистр для более стабильного разбора
     p = morph.parse(token.lower())
     if not p:
         return "UNKN"
-    pos = p[0].tag.POS  # например: 'NOUN', 'VERB', 'ADJF', 'NPRO', ...
+    pos = p[0].tag.POS
     return pos if pos else "UNKN"
 
 
-# === ДОБАВЛЕНО: "подписываем" листья дерева: слово -> слово/POS ===
+# Доп - Подписываем части речи в дереве
 def annotate_tree_leaves_with_pos(tree):
-    """
-    Модифицирует дерево NLTK: каждый лист (слово) заменяется на 'слово/POS'
-    POS берётся из pymorphy2.
-    """
     # обходим позиции всех листьев и заменяем их
     for leaf_pos in tree.treepositions('leaves'):
         word = tree[leaf_pos]
@@ -63,21 +48,19 @@ def annotate_tree_leaves_with_pos(tree):
     return tree
 
 
-# Обрабатываем все предложения
 processed_sentences = [preprocess_sentence(sent) for sent in sentences]
 
 print("Обработанные предложения:")
 for i, sent in enumerate(processed_sentences, 1):
     print(f"{i}: {sent}")
 
-# === ДОБАВЛЕНО: печать POS-тегов по предложениям (для контроля) ===
 print("\nPOS-теги (pymorphy2) для каждого предложения:")
 for i, tokens in enumerate(processed_sentences, 1):
     pos_tags = [(t, get_pymorphy_pos(t)) for t in tokens]
     print(f"{i}: {pos_tags}")
 
 
-# 3) Контекстно-свободная грамматика для русского языка с АНГЛИЙСКИМИ метками
+# 3 Контекстно-свободная грамматика для русского языка с АНГЛИЙСКИМИ метками
 grammar = nltk.CFG.fromstring("""
     ПРЕДЛ -> ИГ СГ | СГ | ПРЕДЛ СОЮЗ ПРЕДЛ
 
@@ -103,7 +86,6 @@ grammar = nltk.CFG.fromstring("""
 
 
 #Подзадача 1: реализовать грамматику с разбиением по членам предложения
-
 grammar_1 = nltk.CFG.fromstring("""
     # Стартовый символ с союзами
     ПРЕДЛ -> ПОДЛЕЖАЩАЯ_ЧАСТЬ СКАЗУЕМАЯ_ЧАСТЬ | СКАЗУЕМАЯ_ЧАСТЬ | ПРЕДЛ СОЮЗ ПРЕДЛ
@@ -195,7 +177,6 @@ grammar_2 = nltk.CFG.fromstring("""
 parser_1 = ChartParser(grammar_1)
 parser_2 = ChartParser(grammar_2)
 
-# --- Вывод Подзадачи 1 ---
 print("\n" + "=" * 60)
 print("ПОДЗАДАЧА 1")
 print("=" * 60)
@@ -209,7 +190,6 @@ for i, tokens in enumerate(processed_sentences, 1):
             print("✓ Разбор успешен!")
             tree = trees[0]
 
-            # === ДОБАВЛЕНО: подписываем листья дерева POS-тегами pymorphy2 ===
             annotate_tree_leaves_with_pos(tree)
 
             draw_trees(tree)
@@ -218,7 +198,6 @@ for i, tokens in enumerate(processed_sentences, 1):
     except Exception as e:
         print(f"✗ Ошибка: {e}")
 
-# --- Вывод Подзадачи 2 ---
 print("\n" + "=" * 60)
 print("ПОДЗАДАЧА 2:")
 print("=" * 60)
@@ -232,7 +211,6 @@ for i, tokens in enumerate(processed_sentences, 1):
             print("✓ Разбор успешен!")
             tree = trees[0]
 
-            # === ДОБАВЛЕНО: подписываем листья дерева POS-тегами pymorphy2 ===
             annotate_tree_leaves_with_pos(tree)
 
             draw_trees(tree)
